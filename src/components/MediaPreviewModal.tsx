@@ -75,6 +75,10 @@ export function MediaPreviewModal({ creative, onClose, onTag, onEdit, onDelete, 
   };
 
   const isVideo = creative.fileType === "video";
+  const bunnyHostname = process.env.NEXT_PUBLIC_BUNNY_CDN_HOSTNAME;
+  const videoSrc = bunnyId && bunnyHostname
+    ? `https://${bunnyHostname}/${bunnyId}/playlist.m3u8`
+    : `/api/file/${creative.id}`;
   const driveSrc = `/api/file/${creative.id}`;
   const thumbSrc = `/api/thumb/${creative.id}`;
 
@@ -183,7 +187,7 @@ export function MediaPreviewModal({ creative, onClose, onTag, onEdit, onDelete, 
           style={{ aspectRatio: "9/16" }}>
           {isVideo ? (
             <VideoPlayer
-              src={driveSrc}
+              src={videoSrc}
               poster={thumbSrc}
               className="w-full h-full"
               style={{ maxHeight: "75vh" }}
