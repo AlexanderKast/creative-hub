@@ -159,8 +159,9 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
     const isTextChange = !!(filters.search || filters.customTag || filters.minSizeMB || filters.maxSizeMB || filters.minDurSecs || filters.maxDurSecs);
     clearTimeout(filterDebounceRef.current);
     filterDebounceRef.current = setTimeout(() => {
-      loadGenRef.current += 1; // invalidate any in-flight page loads from previous filter
-      loadingRef.current = false; // allow the reset load to run even if one was in progress
+      loadGenRef.current += 1;
+      loadingRef.current = false;
+      setFiles([]);
       setTotal(null);
       setCursor(null);
       loadPage(null, { reset: true });
@@ -487,7 +488,22 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
           </div>
         )}
 
-        {files.length > 0 && <StatsBar all={files} filtered={filtered} />}
+        {(files.length > 0 || total != null) && (
+          <StatsBar
+            all={files}
+            filtered={filtered}
+            total={total}
+            isLoading={isLoading}
+            hasActiveFilter={
+              filters.search !== "" || filters.folderId !== "" ||
+              filters.fileType !== "all" || filters.contentType !== "all" ||
+              filters.platform !== "all" || filters.status !== "all" ||
+              filters.dateFrom !== "" || filters.dateTo !== "" ||
+              filters.minSizeMB !== "" || filters.maxSizeMB !== "" ||
+              filters.minDurSecs !== "" || filters.maxDurSecs !== ""
+            }
+          />
+        )}
         <FilterBar
           filters={filters}
           folders={folders}
