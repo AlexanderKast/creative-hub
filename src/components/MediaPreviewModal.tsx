@@ -7,6 +7,7 @@ import { Creative } from "@/types";
 import { ContentTypeBadge, StatusBadge, PlatformBadge } from "./TagBadge";
 import { CopyGeneratorModal } from "./CopyGeneratorModal";
 import { VideoPlayer } from "./VideoPlayer";
+import { useDriveVideoUrl } from "@/hooks/useDriveVideoUrl";
 
 interface Props {
   creative: Creative;
@@ -25,6 +26,10 @@ export function MediaPreviewModal({ creative, onClose, onTag, onEdit, onDelete, 
   const [isSyncingBunny, setIsSyncingBunny] = useState(false);
   const [bunnyId, setBunnyId] = useState(creative.bunnyVideoId ?? null);
   const [bunnyError, setBunnyError] = useState("");
+
+  // URL directa a googleapis.com — elimina el hop por Vercel para streaming.
+  // Mientras carga (null), usamos el proxy como fallback transparente.
+  const driveDirectUrl = useDriveVideoUrl(creative.id);
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); },
@@ -76,9 +81,12 @@ export function MediaPreviewModal({ creative, onClose, onTag, onEdit, onDelete, 
 
   const isVideo = creative.fileType === "video";
   const bunnyHostname = process.env.NEXT_PUBLIC_BUNNY_CDN_HOSTNAME;
+
+  // Prioridad: Bunny HLS > URL directa de Drive > proxy Next.js
   const videoSrc = bunnyId && bunnyHostname
     ? `https://${bunnyHostname}/${bunnyId}/playlist.m3u8`
-    : `/api/file/${creative.id}`;
+    : (driveDirectUrl ?? `/api/file/${creative.id}`);
+
   const driveSrc = `/api/file/${creative.id}`;
   const thumbSrc = `/api/thumb/${creative.id}`;
 

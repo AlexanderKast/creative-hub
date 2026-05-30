@@ -61,6 +61,7 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
   const [syncError, setSyncError] = useState("");
 
   const gridRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
   const filesRef = useRef(files);
   filesRef.current = files; // sync update — always current
@@ -203,17 +204,21 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
     return () => { clearTimeout(timer); es?.close(); };
   }, []);
 
-  // Infinite scroll — load next page when near bottom (only on actual scroll)
+  // Infinite scroll — IntersectionObserver on sentinel div at the bottom of the list.
+  // Fires when sentinel is within 600px of the viewport (with or without scroll),
+  // which handles the case where initial SSR content doesn't fill the screen.
   useEffect(() => {
-    if (cursor === "done") return;
-    const handleScroll = () => {
-      if (loadingRef.current || cursor === "done") return;
-      const distanceFromBottom =
-        document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
-      if (distanceFromBottom < 600) loadPage(cursor as number | string | null);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    if (!sentinelRef.current || cursor === "done") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !loadingRef.current && cursor !== "done") {
+          loadPage(cursor as number | string | null);
+        }
+      },
+      { rootMargin: "0px 0px 600px 0px" }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
   }, [cursor, loadPage]);
 
   const refresh = useCallback(async () => {
@@ -545,7 +550,7 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
           </div>
         )}
 
-        <div className="h-4" />
+        <div ref={sentinelRef} className="h-4" />
 
         {isLoading && files.length > 0 && (
           <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-400">
