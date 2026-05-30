@@ -202,18 +202,17 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
     return () => { clearTimeout(timer); es?.close(); };
   }, []);
 
-  // Infinite scroll — load next page when near bottom
+  // Infinite scroll — load next page when near bottom (only on actual scroll)
   useEffect(() => {
     if (cursor === "done") return;
     const handleScroll = () => {
       if (loadingRef.current || cursor === "done") return;
       const distanceFromBottom =
         document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
-      if (distanceFromBottom < 800) loadPage(cursor as number | string | null);
+      if (distanceFromBottom < 600) loadPage(cursor as number | string | null);
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
-    const t = setTimeout(handleScroll, 150);
-    return () => { window.removeEventListener("scroll", handleScroll); clearTimeout(t); };
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [cursor, loadPage]);
 
   const refresh = useCallback(async () => {
