@@ -24,3 +24,24 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ── Plyr overrides para layout portrait 9:16 ── */
+.plyr {
+  width: 100%;
+  height: 100%;
+  --plyr-color-main: #6366f1;
+  --plyr-font-size-base: 13px;
+}
+.plyr video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+/* Ocultar el wrapper que Plyr inyecta para que no rompa aspectRatio */
+.plyr__video-wrapper {
+  height: 100%;
+}
+.plyr--video .plyr__controls {
+  padding: 6px 10px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+}

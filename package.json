@@ -9,7 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.106.2",
+    "@tanstack/react-virtual": "^3.13.26",
+    "date-fns": "^4.3.0",
+    "googleapis": "^173.0.0",
+    "lucide-react": "^1.17.0",
     "next": "16.2.6",
+    "next-auth": "^4.24.14",
+    "plyr": "^3.8.4",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
