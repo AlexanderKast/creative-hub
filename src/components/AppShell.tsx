@@ -4,11 +4,15 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { LayoutGrid, FolderKanban, LogOut, ChevronRight, Menu, X } from "lucide-react";
+import { LayoutGrid, FolderKanban, LogOut, ChevronRight, Menu, X, CalendarDays, BookOpen, Zap, Eye } from "lucide-react";
 
 const NAV = [
-  { href: "/",        label: "Media Library",  icon: LayoutGrid },
+  { href: "/",         label: "Media Library", icon: LayoutGrid },
   { href: "/projects", label: "Proyectos",     icon: FolderKanban },
+  { href: "/calendar", label: "Calendario",    icon: CalendarDays },
+  { href: "/briefs",   label: "Briefs",         icon: BookOpen },
+  { href: "/hooks",    label: "Hooks",           icon: Zap },
+  { href: "/spy",      label: "Spy",             icon: Eye },
 ];
 
 function Sidebar({ onClose }: { onClose?: () => void }) {

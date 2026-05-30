@@ -3,7 +3,13 @@ import { GoogleAIFileManager } from "@google/generative-ai/server";
 import * as os from "os";
 import * as path from "path";
 import * as fs from "fs/promises";
-import { CreativeTags, ContentType, Platform, CreativeStatus, VideoAnalysis } from "@/types";
+import { CreativeTags, ContentType, Platform, CreativeStatus, VideoAnalysis, FunnelStage, EmotionalAngle, ScoreBreakdown } from "@/types";
+
+// SmartTags extends CreativeTags with the two extra dimensions from Feature 7
+export interface SmartTags extends CreativeTags {
+  funnelStage:    FunnelStage | null;
+  emotionalAngle: EmotionalAngle | null;
+}
 
 function getApiKey(): string {
   const key = process.env.GEMINI_API_KEY;
@@ -26,21 +32,23 @@ export async function autoTagCreative(
   fileName: string,
   mimeType: string,
   folderName: string,
-): Promise<CreativeTags> {
+): Promise<SmartTags> {
   const model = getModel();
 
-  const prompt = `Analiza este archivo creativo y devuelve un JSON con etiquetas.
+  const prompt = `Analiza este archivo creativo de marketing y devuelve etiquetas en JSON.
 
 Nombre del archivo: "${fileName}"
 Tipo MIME: "${mimeType}"
 Carpeta: "${folderName}"
 
-contentType (elige UNO): "UGC" | "testimonio" | "demo" | "educativo" | "producto" | "sin_clasificar"
+contentType (elige UNO): "UGC" | "testimonio" | "demo" | "educativo" | "producto" | "behind_the_scenes" | "sin_clasificar"
 platforms (puede ser MÚLTIPLE): "Meta" | "TikTok" | "YouTube" | "Instagram" | "sin_sugerencia"
 status (elige UNO): "listo_para_pautar" | "revisar" | "descartar" | "sin_estado"
+funnelStage (elige UNO): "TOFU" | "MOFU" | "BOFU" — TOFU=awareness, MOFU=consideración, BOFU=conversión
+emotionalAngle (elige UNO): "dolor" | "beneficio" | "curiosidad" | "social_proof" | "transformacion"
 
 Responde SOLO con JSON válido, sin markdown:
-{"contentType": "...", "platforms": ["..."], "status": "..."}`;
+{"contentType":"...","platforms":["..."],"status":"...","funnelStage":"...","emotionalAngle":"..."}`;
 
   const result = await model.generateContent(prompt);
   const raw = result.response.text().trim();
@@ -49,13 +57,74 @@ Responde SOLO con JSON válido, sin markdown:
   try {
     const parsed = JSON.parse(clean);
     return {
-      contentType: (parsed.contentType as ContentType) ?? "sin_clasificar",
-      platforms: (parsed.platforms as Platform[]) ?? [],
-      status: (parsed.status as CreativeStatus) ?? "sin_estado",
-      custom: [],
+      contentType:    (parsed.contentType    as ContentType)    ?? "sin_clasificar",
+      platforms:      (parsed.platforms      as Platform[])     ?? [],
+      status:         (parsed.status         as CreativeStatus) ?? "sin_estado",
+      custom:         [],
+      funnelStage:    (parsed.funnelStage    as FunnelStage)    ?? null,
+      emotionalAngle: (parsed.emotionalAngle as EmotionalAngle) ?? null,
     };
   } catch {
-    return { contentType: "sin_clasificar", platforms: [], status: "sin_estado", custom: [] };
+    return { contentType: "sin_clasificar", platforms: [], status: "sin_estado", custom: [], funnelStage: null, emotionalAngle: null };
+  }
+}
+
+// ─── WINNING AD SCORE (Feature 2) ─────────────────────────────────────────────
+
+export async function scoreCreative(
+  fileName: string,
+  mimeType: string,
+  analysis?: VideoAnalysis | null,
+): Promise<{ score: number; breakdown: ScoreBreakdown }> {
+  const model = getModel("gemini-2.0-flash");
+
+  const contextStr = analysis
+    ? `Análisis disponible:
+- Transcript: ${analysis.transcript?.slice(0, 400) ?? "no disponible"}
+- Hook strength: ${analysis.hook_strength ?? "no evaluado"}
+- Key messages: ${(analysis.key_messages ?? []).join(", ")}
+- Content type: ${analysis.content_type ?? "desconocido"}
+- Copy angles: ${(analysis.copy_angles ?? []).join(", ")}
+- Emociones detectadas: ${(analysis.emotions ?? []).join(", ")}`
+    : "Solo metadata del archivo disponible (sin análisis previo).";
+
+  const prompt = `Eres un experto en performance de creatives para Meta Ads y TikTok en LATAM.
+Evalúa este creative de marketing y dale un puntaje de efectividad en 4 dimensiones.
+
+Nombre: "${fileName}"
+Tipo: ${mimeType}
+${contextStr}
+
+Evalúa en 4 dimensiones (0-25 cada una):
+
+1. hookStrength: ¿Los primeros 3 segundos / primera línea captura atención? ¿Tiene pattern interrupt o promesa clara?
+2. emotionalAngle: ¿Conecta emocionalmente? ¿Usa dolor, beneficio, curiosidad o social proof de forma efectiva?
+3. ctaClarity: ¿El call to action es claro, urgente y específico?
+4. platformFit: ¿El formato y estilo es nativo para la plataforma destino? ¿Respeta aspect ratio, duración óptima?
+
+Responde SOLO con JSON válido, sin markdown:
+{"hookStrength":0,"emotionalAngle":0,"ctaClarity":0,"platformFit":0,"notes":"explicación en máx 80 palabras"}`;
+
+  const result = await model.generateContent(prompt);
+  const raw = result.response.text().trim();
+  const clean = raw.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+
+  try {
+    const parsed = JSON.parse(clean);
+    const breakdown: ScoreBreakdown = {
+      hookStrength:   Math.min(25, Math.max(0, Math.round(parsed.hookStrength   ?? 0))),
+      emotionalAngle: Math.min(25, Math.max(0, Math.round(parsed.emotionalAngle ?? 0))),
+      ctaClarity:     Math.min(25, Math.max(0, Math.round(parsed.ctaClarity     ?? 0))),
+      platformFit:    Math.min(25, Math.max(0, Math.round(parsed.platformFit    ?? 0))),
+      notes:          String(parsed.notes ?? ""),
+    };
+    const score = breakdown.hookStrength + breakdown.emotionalAngle + breakdown.ctaClarity + breakdown.platformFit;
+    return { score, breakdown };
+  } catch {
+    return {
+      score: 0,
+      breakdown: { hookStrength: 0, emotionalAngle: 0, ctaClarity: 0, platformFit: 0, notes: "Error al parsear respuesta de Gemini" },
+    };
   }
 }
 

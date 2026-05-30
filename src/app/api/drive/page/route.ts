@@ -50,6 +50,9 @@ export async function GET(req: NextRequest) {
       const minDurSecs = p.get("minDurSecs");
       const maxDurSecs = p.get("maxDurSecs");
 
+      const minScore = p.get("minScore");
+      const maxScore = p.get("maxScore");
+
       const result = await getCreativesPage({
         cursor: offset,
         limit: 50,
@@ -67,6 +70,10 @@ export async function GET(req: NextRequest) {
         maxSizeBytes: maxSizeMB ? Math.round(parseFloat(maxSizeMB) * 1_048_576) : undefined,
         minDurSecs: minDurSecs ? parseInt(minDurSecs) : undefined,
         maxDurSecs: maxDurSecs ? parseInt(maxDurSecs) : undefined,
+        funnelStage:    p.get("funnelStage")    ?? undefined,
+        emotionalAngle: p.get("emotionalAngle") ?? undefined,
+        minScore: minScore ? parseInt(minScore) : undefined,
+        maxScore: maxScore ? parseInt(maxScore) : undefined,
         allowedProjectIds,
       });
 

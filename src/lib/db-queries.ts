@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { Creative, CreativeTags, DriveFolder, Project, ProjectMember, ProjectFolder, Campaign, Deliverable, ProjectMemberRole } from "@/types";
+import { Creative, CreativeTags, DriveFolder, Project, ProjectMember, ProjectFolder, Campaign, Deliverable, ProjectMemberRole, FunnelStage, EmotionalAngle, ScoreBreakdown } from "@/types";
 
 // ─── SYNC STATE ──────────────────────────────────────────────────────────────
 
@@ -58,6 +58,30 @@ export async function updateCreativeTags(id: string, tags: CreativeTags) {
     })
     .eq("id", id);
 
+  if (error) throw error;
+}
+
+// ─── SCORE (Feature 2) ───────────────────────────────────────────────────────
+
+export async function saveCreativeScore(id: string, score: number, breakdown: ScoreBreakdown): Promise<void> {
+  const { error } = await supabase
+    .from("creatives")
+    .update({ score, score_breakdown: breakdown, scored_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// ─── SMART TAGS (Feature 7) ──────────────────────────────────────────────────
+
+export async function saveSmartTags(
+  id: string,
+  funnelStage: FunnelStage | null,
+  emotionalAngle: EmotionalAngle | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from("creatives")
+    .update({ funnel_stage: funnelStage, emotional_angle: emotionalAngle })
+    .eq("id", id);
   if (error) throw error;
 }
 
@@ -157,11 +181,17 @@ export interface CreativesPageOptions {
   search?: string;
   dateFrom?: string;
   dateTo?: string;
-  sort?: "recent" | "oldest" | "name_az" | "name_za" | "size_desc" | "duration_desc" | "duration_asc";
+  sort?: "recent" | "oldest" | "name_az" | "name_za" | "size_desc" | "duration_desc" | "duration_asc" | "score_desc";
   minSizeBytes?: number;
   maxSizeBytes?: number;
   minDurSecs?: number;
   maxDurSecs?: number;
+  // Feature 7: Smart Folder filters
+  funnelStage?: string;
+  emotionalAngle?: string;
+  // Feature 2: Score range
+  minScore?: number;
+  maxScore?: number;
   // null = no restriction (admin); string[] = only these project IDs + project-less creatives
   allowedProjectIds?: string[] | null;
 }
@@ -174,6 +204,7 @@ const SORT_MAP: Record<string, { col: string; asc: boolean }> = {
   size_desc:     { col: "size_bytes",       asc: false },
   duration_desc: { col: "duration_seconds", asc: false },
   duration_asc:  { col: "duration_seconds", asc: true  },
+  score_desc:    { col: "score",            asc: false },
 };
 
 export async function getCreativesPage(opts: CreativesPageOptions): Promise<{
@@ -208,6 +239,10 @@ export async function getCreativesPage(opts: CreativesPageOptions): Promise<{
   if (opts.maxSizeBytes != null) q = q.lte("size_bytes", opts.maxSizeBytes);
   if (opts.minDurSecs != null) q = q.gte("duration_seconds", opts.minDurSecs);
   if (opts.maxDurSecs != null) q = q.lte("duration_seconds", opts.maxDurSecs);
+  if (opts.funnelStage    && opts.funnelStage    !== "all") q = q.eq("funnel_stage",    opts.funnelStage);
+  if (opts.emotionalAngle && opts.emotionalAngle !== "all") q = q.eq("emotional_angle", opts.emotionalAngle);
+  if (opts.minScore != null) q = q.gte("score", opts.minScore);
+  if (opts.maxScore != null) q = q.lte("score", opts.maxScore);
 
   // Access control: restrict to project-less creatives + allowed project IDs (null = admin, no restriction)
   if (opts.allowedProjectIds !== null && opts.allowedProjectIds !== undefined) {
@@ -275,6 +310,13 @@ function dbRowToCreative(row: Record<string, unknown>): Creative {
       status: (row.tag_status as string) as Creative["tags"]["status"],
       custom: (row.tag_custom as string[]) ?? [],
     },
+    // Feature 2: Winning Ad Score
+    score:          (row.score          as number)        ?? null,
+    scoreBreakdown: (row.score_breakdown as ScoreBreakdown) ?? null,
+    scoredAt:       (row.scored_at      as string)        ?? null,
+    // Feature 7: Smart Folders
+    funnelStage:    (row.funnel_stage    as FunnelStage)    ?? null,
+    emotionalAngle: (row.emotional_angle as EmotionalAngle) ?? null,
   };
 }
 

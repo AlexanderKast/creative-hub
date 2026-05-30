@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Search, X, ArrowUpDown, Loader2 } from "lucide-react";
-import { FilterState, FilterSort, DriveFolder, ContentType, Platform, CreativeStatus } from "@/types";
+import { Search, X, ArrowUpDown, Loader2, Star } from "lucide-react";
+import { FilterState, FilterSort, DriveFolder, ContentType, Platform, CreativeStatus, FunnelStage, EmotionalAngle } from "@/types";
 
 interface Props {
   filters: FilterState;
@@ -22,13 +22,30 @@ const FILE_TYPES = [
 ];
 
 const CONTENT_TYPES: { value: ContentType | "all"; label: string }[] = [
-  { value: "all",           label: "Todos los tipos" },
-  { value: "UGC",           label: "UGC" },
-  { value: "testimonio",    label: "Testimonio" },
-  { value: "demo",          label: "Demo" },
-  { value: "educativo",     label: "Educativo" },
-  { value: "producto",      label: "Producto" },
-  { value: "sin_clasificar",label: "Sin clasificar" },
+  { value: "all",              label: "Todos los tipos" },
+  { value: "UGC",              label: "UGC" },
+  { value: "testimonio",       label: "Testimonio" },
+  { value: "demo",             label: "Demo" },
+  { value: "educativo",        label: "Educativo" },
+  { value: "producto",         label: "Producto" },
+  { value: "behind_the_scenes",label: "Behind the scenes" },
+  { value: "sin_clasificar",   label: "Sin clasificar" },
+];
+
+const FUNNEL_STAGES: { value: FunnelStage | "all"; label: string }[] = [
+  { value: "all",  label: "Todo el embudo" },
+  { value: "TOFU", label: "TOFU — Awareness" },
+  { value: "MOFU", label: "MOFU — Consideración" },
+  { value: "BOFU", label: "BOFU — Conversión" },
+];
+
+const EMOTIONAL_ANGLES: { value: EmotionalAngle | "all"; label: string }[] = [
+  { value: "all",          label: "Todos los ángulos" },
+  { value: "dolor",        label: "Dolor" },
+  { value: "beneficio",    label: "Beneficio" },
+  { value: "curiosidad",   label: "Curiosidad" },
+  { value: "social_proof", label: "Social proof" },
+  { value: "transformacion",label: "Transformación" },
 ];
 
 const PLATFORMS: { value: Platform | "all"; label: string }[] = [
@@ -55,6 +72,7 @@ const SORT_OPTIONS: { value: FilterSort; label: string }[] = [
   { value: "size_desc",     label: "Mayor tamaño" },
   { value: "duration_desc", label: "Más largo" },
   { value: "duration_asc",  label: "Más corto" },
+  { value: "score_desc",    label: "★ Mayor score" },
 ];
 
 // ─── Label helpers ────────────────────────────────────────────────────────────
@@ -196,6 +214,18 @@ export function FilterBar({ filters, folders, onChange, onReset, total, isLoadin
       c.push({ key: "minDur", label: `≥ ${fmtDuration(parseInt(filters.minDurSecs))}`, color: "purple", onRemove: () => set("minDurSecs", "") });
     if (filters.maxDurSecs)
       c.push({ key: "maxDur", label: `≤ ${fmtDuration(parseInt(filters.maxDurSecs))}`, color: "purple", onRemove: () => set("maxDurSecs", "") });
+    if (filters.funnelStage && filters.funnelStage !== "all") {
+      const label = FUNNEL_STAGES.find((o) => o.value === filters.funnelStage)?.label ?? filters.funnelStage;
+      c.push({ key: "funnel", label, color: "emerald", onRemove: () => set("funnelStage", "all") });
+    }
+    if (filters.emotionalAngle && filters.emotionalAngle !== "all") {
+      const label = EMOTIONAL_ANGLES.find((o) => o.value === filters.emotionalAngle)?.label ?? filters.emotionalAngle;
+      c.push({ key: "emotional", label, color: "pink", onRemove: () => set("emotionalAngle", "all") });
+    }
+    if (filters.minScore)
+      c.push({ key: "minScore", label: `Score ≥ ${filters.minScore}`, color: "amber", onRemove: () => set("minScore", "") });
+    if (filters.maxScore)
+      c.push({ key: "maxScore", label: `Score ≤ ${filters.maxScore}`, color: "amber", onRemove: () => set("maxScore", "") });
     if (filters.sort !== "recent") {
       const sortOpt = SORT_OPTIONS.find((o) => o.value === filters.sort);
       c.push({ key: "sort", label: sortOpt?.label ?? filters.sort, color: "gray", onRemove: () => set("sort", "recent") });
@@ -307,6 +337,55 @@ export function FilterBar({ filters, folders, onChange, onReset, total, isLoadin
           onChange={(v) => set("status", v as CreativeStatus | "all")}
           ariaLabel="Estado"
         />
+      </div>
+
+      {/* Row 2b: Smart Folder filters (Feature 7 + Feature 2) */}
+      <div className="px-4 pb-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <SelectFilter
+          value={filters.funnelStage ?? "all"}
+          defaultValue="all"
+          options={FUNNEL_STAGES as { value: string; label: string }[]}
+          onChange={(v) => set("funnelStage", v as FunnelStage | "all")}
+          ariaLabel="Etapa del embudo"
+        />
+        <SelectFilter
+          value={filters.emotionalAngle ?? "all"}
+          defaultValue="all"
+          options={EMOTIONAL_ANGLES as { value: string; label: string }[]}
+          onChange={(v) => set("emotionalAngle", v as EmotionalAngle | "all")}
+          ariaLabel="Ángulo emocional"
+        />
+        <div className="flex items-center gap-1.5 col-span-2 sm:col-span-2">
+          <Star size={12} className="text-amber-400 shrink-0" aria-hidden="true" />
+          <span className="text-xs text-gray-400 shrink-0">Score</span>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="5"
+            value={filters.minScore ?? ""}
+            onChange={(e) => set("minScore", e.target.value)}
+            placeholder="Min"
+            aria-label="Score mínimo"
+            className={`w-16 px-2 py-1.5 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors ${
+              filters.minScore ? "border-amber-300 text-amber-700" : "border-gray-200 text-gray-600"
+            }`}
+          />
+          <span className="text-gray-300 text-xs select-none">—</span>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="5"
+            value={filters.maxScore ?? ""}
+            onChange={(e) => set("maxScore", e.target.value)}
+            placeholder="Max"
+            aria-label="Score máximo"
+            className={`w-16 px-2 py-1.5 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors ${
+              filters.maxScore ? "border-amber-300 text-amber-700" : "border-gray-200 text-gray-600"
+            }`}
+          />
+        </div>
       </div>
 
       {/* Row 3: Date + Size + Duration */}

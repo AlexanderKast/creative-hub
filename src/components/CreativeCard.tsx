@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
-import { Play, ImageIcon, Pencil, Sparkles, ExternalLink, Maximize2, FileText, Download } from "lucide-react";
+import { Play, ImageIcon, Pencil, Sparkles, ExternalLink, Maximize2, FileText, Download, Star } from "lucide-react";
 import { Creative } from "@/types";
 import { ContentTypeBadge, StatusBadge, PlatformBadge } from "./TagBadge";
 import { CopyGeneratorModal } from "./CopyGeneratorModal";
@@ -9,11 +9,29 @@ import { CopyGeneratorModal } from "./CopyGeneratorModal";
 interface Props {
   creative: Creative;
   onTag: (id: string) => void;
+  onScore: (id: string) => void;
   onEdit: (creative: Creative) => void;
   onPreview: (creative: Creative) => void;
 }
 
-export const CreativeCard = memo(function CreativeCard({ creative, onTag, onEdit, onPreview }: Props) {
+function ScoreBadge({ score }: { score: number }) {
+  const { bg, ring } = score >= 70
+    ? { bg: "bg-emerald-500", ring: "ring-emerald-400" }
+    : score >= 40
+    ? { bg: "bg-amber-400",   ring: "ring-amber-300" }
+    : { bg: "bg-red-500",     ring: "ring-red-400" };
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white ring-1 ${bg} ${ring}`}
+      title={`Score: ${score}/100`}
+    >
+      <Star size={7} fill="white" aria-hidden="true" />
+      {score}
+    </span>
+  );
+}
+
+export const CreativeCard = memo(function CreativeCard({ creative, onTag, onScore, onEdit, onPreview }: Props) {
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [showCopy, setShowCopy] = useState(false);
@@ -120,10 +138,18 @@ export const CreativeCard = memo(function CreativeCard({ creative, onTag, onEdit
           >
             <Sparkles size={11} aria-hidden="true" />
           </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onScore(creative.id); }}
+            disabled={creative.isScoring}
+            className="p-1.5 bg-amber-500/90 rounded-lg text-white hover:bg-amber-500 shadow-sm transition-colors disabled:opacity-50"
+            aria-label="Calcular Winning Ad Score"
+          >
+            <Star size={11} aria-hidden="true" />
+          </button>
         </div>
 
-        {/* Tagging spinner */}
-        {creative.isTagging && (
+        {/* Tagging / scoring spinner */}
+        {(creative.isTagging || creative.isScoring) && (
           <div className="absolute inset-0 z-30 bg-black/50 flex items-center justify-center">
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
           </div>
@@ -136,9 +162,10 @@ export const CreativeCard = memo(function CreativeCard({ creative, onTag, onEdit
           {creative.name}
         </p>
         <p className="text-[10px] text-gray-400 truncate">{creative.folderName}{creative.size ? ` · ${creative.size}` : ""}</p>
-        <div className="flex flex-wrap gap-0.5">
+        <div className="flex flex-wrap gap-0.5 items-center">
           <ContentTypeBadge type={creative.tags.contentType} />
           <StatusBadge status={creative.tags.status} />
+          {creative.score != null && <ScoreBadge score={creative.score} />}
         </div>
         {creative.tags.platforms.length > 0 && (
           <div className="flex flex-wrap gap-0.5">

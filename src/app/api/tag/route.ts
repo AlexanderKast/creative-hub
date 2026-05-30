@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@/lib/auth";
 import { autoTagCreative, isGeminiQuotaError } from "@/lib/gemini";
-import { updateCreativeTags } from "@/lib/db-queries";
+import { updateCreativeTags, saveSmartTags } from "@/lib/db-queries";
 
 export async function PATCH(req: NextRequest) {
   const session = await getAuth();
@@ -36,16 +36,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const tags = await autoTagCreative(fileName, mimeType, folderName ?? "");
+    const smartTags = await autoTagCreative(fileName, mimeType, folderName ?? "");
+    const { funnelStage, emotionalAngle, ...coreTags } = smartTags;
 
-    // Persistir en DB si tenemos el fileId
     if (fileId) {
-      await updateCreativeTags(fileId, tags).catch(() => {
-        // No fallar si la DB aún no está sincronizada
-      });
+      await Promise.all([
+        updateCreativeTags(fileId, coreTags).catch(() => {}),
+        saveSmartTags(fileId, funnelStage, emotionalAngle).catch(() => {}),
+      ]);
     }
 
-    return NextResponse.json({ tags });
+    return NextResponse.json({ tags: smartTags });
   } catch (err) {
     console.error("Gemini tag error:", err);
     if (isGeminiQuotaError(err)) {

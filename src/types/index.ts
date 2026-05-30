@@ -1,4 +1,17 @@
-export type ContentType = "UGC" | "testimonio" | "demo" | "educativo" | "producto" | "sin_clasificar";
+export type ContentType = "UGC" | "testimonio" | "demo" | "educativo" | "producto" | "behind_the_scenes" | "sin_clasificar";
+
+// ─── SMART FOLDERS (Feature 7) ────────────────────────────────────────────────
+export type FunnelStage    = "TOFU" | "MOFU" | "BOFU";
+export type EmotionalAngle = "dolor" | "beneficio" | "curiosidad" | "social_proof" | "transformacion";
+
+// ─── WINNING AD SCORE (Feature 2) ─────────────────────────────────────────────
+export interface ScoreBreakdown {
+  hookStrength:   number; // 0-25
+  emotionalAngle: number; // 0-25
+  ctaClarity:     number; // 0-25
+  platformFit:    number; // 0-25
+  notes:          string;
+}
 export type Platform = "Meta" | "TikTok" | "YouTube" | "Instagram" | "sin_sugerencia";
 export type CreativeStatus = "listo_para_pautar" | "revisar" | "descartar" | "sin_estado";
 
@@ -62,6 +75,15 @@ export interface Creative {
   analysis?: VideoAnalysis | null;
   analysisStatus?: "processing" | "done" | "error" | null;
   projectId?: string | null;
+  // Feature 2: Winning Ad Score
+  score?: number | null;
+  scoreBreakdown?: ScoreBreakdown | null;
+  scoredAt?: string | null;
+  // Feature 7: Smart Folders
+  funnelStage?: FunnelStage | null;
+  emotionalAngle?: EmotionalAngle | null;
+  // Client-side transient states
+  isScoring?: boolean;
 }
 
 // ─── PROJECTS ────────────────────────────────────────────────────────────────
@@ -170,7 +192,7 @@ export interface DriveFolder {
   name: string;
 }
 
-export type FilterSort = "recent" | "oldest" | "name_az" | "name_za" | "size_desc" | "duration_desc" | "duration_asc";
+export type FilterSort = "recent" | "oldest" | "name_az" | "name_za" | "size_desc" | "duration_desc" | "duration_asc" | "score_desc";
 
 export interface FilterState {
   fileType: "all" | "video" | "image";
@@ -189,4 +211,10 @@ export interface FilterState {
   // Duration range (in seconds, empty string = no limit)
   minDurSecs: string;
   maxDurSecs: string;
+  // Feature 7: Smart Folder filters (optional — "all" = no filter)
+  funnelStage?: FunnelStage | "all";
+  emotionalAngle?: EmotionalAngle | "all";
+  // Feature 2: Score range
+  minScore?: string;
+  maxScore?: string;
 }

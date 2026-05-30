@@ -16,6 +16,7 @@ const DEFAULT_FILTERS: FilterState = {
   contentType: "all", platform: "all", status: "all",
   search: "", customTag: "", sort: "recent",
   minSizeMB: "", maxSizeMB: "", minDurSecs: "", maxDurSecs: "",
+  funnelStage: "all", emotionalAngle: "all", minScore: "", maxScore: "",
 };
 
 interface SyncState {
@@ -101,8 +102,12 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
       if (f.sort && f.sort !== "recent") params.set("sort", f.sort);
       if (f.minSizeMB)                   params.set("minSizeMB", f.minSizeMB);
       if (f.maxSizeMB)                   params.set("maxSizeMB", f.maxSizeMB);
-      if (f.minDurSecs)                  params.set("minDurSecs", f.minDurSecs);
-      if (f.maxDurSecs)                  params.set("maxDurSecs", f.maxDurSecs);
+      if (f.minDurSecs)                   params.set("minDurSecs", f.minDurSecs);
+      if (f.maxDurSecs)                   params.set("maxDurSecs", f.maxDurSecs);
+      if (f.funnelStage && f.funnelStage !== "all")       params.set("funnelStage", f.funnelStage);
+      if (f.emotionalAngle && f.emotionalAngle !== "all") params.set("emotionalAngle", f.emotionalAngle);
+      if (f.minScore)                     params.set("minScore", f.minScore);
+      if (f.maxScore)                     params.set("maxScore", f.maxScore);
 
       const url = `/api/drive/page${params.toString() ? `?${params}` : ""}`;
       const res = await fetch(url);
@@ -291,6 +296,10 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
       }
       if (filters.minDurSecs && (f.durationSeconds ?? 0) < parseInt(filters.minDurSecs)) return false;
       if (filters.maxDurSecs && (f.durationSeconds ?? Infinity) > parseInt(filters.maxDurSecs)) return false;
+      if (filters.funnelStage && filters.funnelStage !== "all" && f.funnelStage !== filters.funnelStage) return false;
+      if (filters.emotionalAngle && filters.emotionalAngle !== "all" && f.emotionalAngle !== filters.emotionalAngle) return false;
+      if (filters.minScore && (f.score == null || f.score < parseInt(filters.minScore))) return false;
+      if (filters.maxScore && (f.score == null || f.score > parseInt(filters.maxScore))) return false;
       return true;
     });
 
@@ -314,6 +323,9 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
       case "duration_asc":
         result = [...result].sort((a, b) => (a.durationSeconds ?? 0) - (b.durationSeconds ?? 0));
         break;
+      case "score_desc":
+        result = [...result].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+        break;
     }
     return result;
   }, [files, filters]);
@@ -330,10 +342,29 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
       });
       if (res.ok) {
         const { tags } = await res.json();
-        setFiles((prev) => prev.map((f) => f.id === id ? { ...f, tags: { ...tags, custom: f.tags.custom }, isTagging: false } : f));
+        setFiles((prev) => prev.map((f) => f.id === id ? {
+          ...f,
+          tags: { ...tags, custom: f.tags.custom },
+          funnelStage:    tags.funnelStage    ?? f.funnelStage,
+          emotionalAngle: tags.emotionalAngle ?? f.emotionalAngle,
+          isTagging: false,
+        } : f));
       }
     } catch {
       setFiles((prev) => prev.map((f) => f.id === id ? { ...f, isTagging: false } : f));
+    }
+  }, []);
+
+  const scoreOne = useCallback(async (id: string) => {
+    setFiles((prev) => prev.map((f) => f.id === id ? { ...f, isScoring: true } : f));
+    try {
+      const res = await fetch(`/api/score/${id}`, { method: "POST" });
+      if (res.ok) {
+        const { score, breakdown } = await res.json();
+        setFiles((prev) => prev.map((f) => f.id === id ? { ...f, score, scoreBreakdown: breakdown, isScoring: false } : f));
+      }
+    } catch {
+      setFiles((prev) => prev.map((f) => f.id === id ? { ...f, isScoring: false } : f));
     }
   }, []);
 
@@ -505,7 +536,10 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
               filters.platform !== "all" || filters.status !== "all" ||
               filters.dateFrom !== "" || filters.dateTo !== "" ||
               filters.minSizeMB !== "" || filters.maxSizeMB !== "" ||
-              filters.minDurSecs !== "" || filters.maxDurSecs !== ""
+              filters.minDurSecs !== "" || filters.maxDurSecs !== "" ||
+              (filters.funnelStage != null && filters.funnelStage !== "all") ||
+              (filters.emotionalAngle != null && filters.emotionalAngle !== "all") ||
+              (filters.minScore ?? "") !== "" || (filters.maxScore ?? "") !== ""
             }
           />
         )}
@@ -535,6 +569,7 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
                 key={creative.id}
                 creative={creative}
                 onTag={tagOne}
+                onScore={scoreOne}
                 onEdit={setEditingCreative}
                 onPreview={setPreviewCreative}
               />
