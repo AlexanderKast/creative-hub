@@ -33,13 +33,23 @@ function parseSizeBytes(size: string | null): number {
   return u === "KB" ? n * 1024 : u === "MB" ? n * 1024 * 1024 : n * 1024 * 1024 * 1024;
 }
 
-export function Dashboard() {
-  const [files, setFiles] = useState<Creative[]>([]);
-  const [folders, setFolders] = useState<DriveFolder[]>([]);
-  const [cursor, setCursor] = useState<number | string | null | "done">(null);
-  const [source, setSource] = useState<"db" | "drive" | null>(null);
-  const [syncState, setSyncState] = useState<SyncState | null>(null);
-  const [total, setTotal] = useState<number | null>(null);
+interface InitialData {
+  files: Creative[];
+  folders: DriveFolder[];
+  total: number;
+  nextOffset: number | null;
+  syncState: SyncState | null;
+}
+
+export function Dashboard({ initialData }: { initialData?: InitialData }) {
+  const [files, setFiles] = useState<Creative[]>(initialData?.files ?? []);
+  const [folders, setFolders] = useState<DriveFolder[]>(initialData?.folders ?? []);
+  const [cursor, setCursor] = useState<number | string | null | "done">(
+    initialData ? (initialData.nextOffset ?? "done") : null
+  );
+  const [source, setSource] = useState<"db" | "drive" | null>(initialData ? "db" : null);
+  const [syncState, setSyncState] = useState<SyncState | null>(initialData?.syncState ?? null);
+  const [total, setTotal] = useState<number | null>(initialData?.total ?? null);
   const [isLoading, setIsLoading] = useState(false);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [editingCreative, setEditingCreative] = useState<Creative | null>(null);
@@ -141,7 +151,8 @@ export function Dashboard() {
   useEffect(() => {
     if (!filterInitRef.current) {
       filterInitRef.current = true;
-      loadPage(null);
+      // Skip initial fetch if server already provided data
+      if (!initialData) loadPage(null);
       return;
     }
     // Filter changed — debounce text/number inputs to avoid hammering the API
