@@ -209,21 +209,43 @@ export function Dashboard({ initialData }: { initialData?: InitialData }) {
     return () => { clearTimeout(timer); es?.close(); };
   }, []);
 
-  // Infinite scroll — IntersectionObserver on sentinel div at the bottom of the list.
-  // Fires when sentinel is within 600px of the viewport (with or without scroll),
-  // which handles the case where initial SSR content doesn't fill the screen.
+  // Infinite scroll — scroll listener on the actual overflow container (AppShell's <main>).
+  // IntersectionObserver with root:null fails here because the scroll container is not the viewport.
   useEffect(() => {
-    if (!sentinelRef.current || cursor === "done") return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !loadingRef.current && cursor !== "done") {
+    if (cursor === "done") return;
+
+    const findScrollContainer = (el: Element | null): HTMLElement | null => {
+      let node = el?.parentElement ?? null;
+      while (node && node !== document.documentElement) {
+        const { overflow, overflowY } = getComputedStyle(node);
+        if (/auto|scroll/.test(overflow + overflowY)) return node;
+        node = node.parentElement;
+      }
+      return null;
+    };
+
+    const container = findScrollContainer(sentinelRef.current);
+
+    const checkNearBottom = () => {
+      if (loadingRef.current || cursor === "done") return;
+      const THRESHOLD = 800;
+      if (container) {
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        if (scrollHeight - scrollTop - clientHeight < THRESHOLD) {
           loadPage(cursor as number | string | null);
         }
-      },
-      { rootMargin: "0px 0px 600px 0px" }
-    );
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
+      } else {
+        if (document.documentElement.scrollHeight - window.scrollY - window.innerHeight < THRESHOLD) {
+          loadPage(cursor as number | string | null);
+        }
+      }
+    };
+
+    const target = (container ?? window) as EventTarget;
+    target.addEventListener("scroll", checkNearBottom, { passive: true });
+    checkNearBottom();
+
+    return () => target.removeEventListener("scroll", checkNearBottom);
   }, [cursor, loadPage]);
 
   const refresh = useCallback(async () => {
